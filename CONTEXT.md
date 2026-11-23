@@ -53,7 +53,7 @@ Too weak to run useful local LLMs; inference is done through cloud APIs.
 | Gateway | `192.168.0.1` |
 | IPv6 | Yes (ISP-assigned, SLAAC) |
 | Firewall | firewalld active |
-| SSH | sshd active, key-based login |
+| SSH | sshd active, publickey only (password and keyboard-interactive refused), root login disabled |
 | Remote access | Cloudflare Tunnel (`cloudflared` 2026.11.1): `jarvis.fervazquezdev.com` → SSH, behind Cloudflare Access |
 
 From the Mac, `ssh jarvis` connects without a password (`~/.ssh/config`: `Host jarvis` → `192.168.0.84`, user `fernandovmedina`).
@@ -70,6 +70,13 @@ The server has a DHCP address on Wi-Fi; it needs a fixed address (router DHCP re
 - **Protection:** the hostname is behind Cloudflare Access (team domain `delicate-glitter-2023.cloudflareaccess.com`). A plain browser request returns `302` to the Access login, so nothing reaches SSH without an Access session or service token.
 - **Connecting from outside:** `ssh -o ProxyCommand="cloudflared access ssh --hostname %h" fernandovmedina@jarvis.fervazquezdev.com` — needs `cloudflared` on the client and a valid Access session/token.
 - **Known quirk:** on start-up the journal shows `timeout: no recent network activity` against the IPv6 edge for a couple of connections; cloudflared retries and re-registers over IPv4 (dfw/iah/atl) until all four connections are up. Harmless but noisy.
+
+### SSH hardening
+
+- **Where:** drop-in inside `/etc/ssh/sshd_config.d/` (root-only directory) with `PasswordAuthentication no`, `KbdInteractiveAuthentication no`, `PermitRootLogin no`. Confirm with `sudo sshd -T | grep -iE 'permitrootlogin|passwordauthentication|kbdinteractive'`.
+- **Verified without root:** `ssh -o PreferredAuthentications=password -o PubkeyAuthentication=no fernandovmedina@localhost true` answers `Permission denied (publickey,gssapi-keyex,gssapi-with-mic)` — the daemon offers publickey only.
+- **Keys:** `~/.ssh/id_ed25519_jarvis_agent_personal` and `~/.ssh/id_ed25519_jarvis_agent_neurovix`, mapped to the `github_jarvis_agent_personal` / `github_jarvis_agent_neurovix` host aliases in `~/.ssh/config`.
+- **Trap:** sshd directives must never live in `/etc/ssh/ssh_config.d/`. The ssh *client* parses that entire directory, aborts on `Bad configuration option: permitrootlogin`, and every outgoing ssh on the machine dies — git over ssh, `gh`, `scp` — while `git push` reports it as an auth/repository error instead of a config error.
 
 ## AI agent
 
@@ -113,7 +120,7 @@ The server has a DHCP address on Wi-Fi; it needs a fixed address (router DHCP re
 
 ## Work remaining
 
-- **Network:** fixed IP for the server; review firewalld rules; confirm SSH allows keys only (no password login, no root login); decide whether the tunnel should expose anything besides SSH (e.g. a webhook endpoint for GitHub pushes).
+- **Network:** fixed IP for the server; review firewalld rules; decide whether the tunnel should expose anything besides SSH (e.g. a webhook endpoint for GitHub pushes).
 - **Models:** set `deepseek-v4-pro` as the fallback instead of a second `deepseek-v4-flash`; remove unused OpenAI/OpenRouter keys from `~/.hermes/.env`; delete the old `~/secrets` folder.
 - **Context files:** update `TOOLS.md` (still lists the old OpenAI model); remove `chat.db` and its mention in `AGENT.md`; restart the gateway and confirm it answers as Jarvis.
 - **GitHub:** log in both accounts in `gh`; set up GitHub webhooks (through the tunnel) or a scheduled check so Jarvis sees new pushes; give the portfolio-sync skill the portfolio repo name.
