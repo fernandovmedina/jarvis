@@ -123,15 +123,38 @@ The server has a DHCP address on Wi-Fi; it needs a fixed address (router DHCP re
 | `skills/portfolio-sync/SKILL.md` | Portfolio workflow; symlinked into `~/.hermes/skills/` |
 | `context/chatting/chat.db` | Empty, unused (Hermes keeps its own history) |
 
+## Integrations
+
+Everything Jarvis can reach outside the server, and where each credential lives. Nothing else is connected: there is no Cloudflare API token, no Supabase token and no voice provider on this machine.
+
+| Integration | What it does | Credential / config | Status |
+|---|---|---|---|
+| DeepSeek API | Model inference, `deepseek-v4-flash` | `DEEPSEEK_API_KEY` in `~/.hermes/.env` | Active, primary |
+| OpenRouter and OpenAI API | Alternative providers | `OPENROUTER_API_KEY`, `OPENAI_API_KEY` in `~/.hermes/.env` | Configured, unused |
+| Telegram | Messaging gateway (`hermes-gateway.service`) | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_HOME_CHANNEL`; only the owner's DM is allowed | Active |
+| GitHub MCP | Read-only repo access, exposed as `mcp__github__*` tools | Local stdio server `~/.local/bin/github-mcp-stdio` | Active |
+| GitHub CLI | Writes: branches, commits, pushes, PRs, issues | `gh` with both accounts (`fernandovmedina`, `neurovix`) plus the SSH host aliases | Active |
+| context7 MCP | Up-to-date library documentation | `https://mcp.context7.com/mcp` | Active |
+| Google Workspace | Gmail, Calendar, Drive, Sheets, Docs, Contacts | OAuth: `~/.hermes/google_token.json` + `~/.hermes/google_client_secret.json` | Active, one account |
+
+### Google Workspace
+
+- **Account:** `fernandovazquez.favm@gmail.com` (personal). The business account is not connected yet.
+- **Scopes granted:** `gmail.readonly`, `gmail.modify`, `gmail.send`, `calendar`, `drive`, `spreadsheets`, `documents`, `contacts.readonly`.
+- **Access path:** the `google-workspace` skill drives `~/.hermes/skills/productivity/google-workspace/scripts/google_api.py`. The token refreshes on its own; if a call fails with `NOT_AUTHENTICATED` or `REFRESH_FAILED`, run `setup.py --check` and redo the OAuth exchange.
+- **Verified working:** Gmail search and read, Calendar list, Drive search/upload/export, Sheets create and update, Docs create and edit (used to build the Minuteko client quotes).
+- **Not granted:** Maps, Cloud Storage, YouTube, Tasks — no scopes for them, so those calls cannot work until the OAuth flow is re-run with the extra scopes.
+
 ## Tech stack
 
 | Area | Tools |
 |---|---|
 | Agent | Hermes Agent, DeepSeek API |
-| Messaging | Telegram |
+| Messaging | Telegram gateway |
+| MCP | GitHub (local, read-only) and context7 (HTTP) |
 | Voice | ElevenLabs and/or Twilio (to be chosen) |
 | Code | GitHub via two SSH identities: `github_jarvis_agent_personal`, `github_jarvis_agent_neurovix`; `gh` CLI with both accounts |
-| Google | Gmail, Calendar, Drive, Sheets; personal and business accounts |
+| Google | Gmail, Calendar, Drive, Sheets, Docs, Contacts via OAuth; personal account connected, business account pending |
 | Data | SQLite (finances, local data) |
 | Containers | Docker |
 | Remote access | Cloudflare Tunnel (`cloudflared` 2026.11.1) → `jarvis.fervazquezdev.com`, gated by Cloudflare Access |
@@ -143,7 +166,7 @@ The server has a DHCP address on Wi-Fi; it needs a fixed address (router DHCP re
 - **Models:** set `deepseek-v4-pro` as the fallback instead of a second `deepseek-v4-flash`; remove unused OpenAI/OpenRouter keys from `~/.hermes/.env`; delete the old `~/secrets` folder.
 - **Context files:** update `TOOLS.md` (still lists the old OpenAI model); remove `chat.db` and its mention in `AGENT.md`; restart the gateway and confirm it answers as Jarvis.
 - **GitHub:** log in both accounts in `gh`; set up GitHub webhooks (through the tunnel) or a scheduled check so Jarvis sees new pushes; give the portfolio-sync skill the portfolio repo name.
-- **Google:** connect Gmail, Calendar, Drive and Sheets for both accounts; create the finance Google Sheet and local SQLite schema.
+- **Google:** the personal account is connected (Gmail, Calendar, Drive, Sheets, Docs, Contacts); connect the business account when a task needs it and create the finance Google Sheet plus the local SQLite schema.
 - **Assistant behavior:** morning briefing, 60/30/5-minute event reminders, agenda change alerts (Hermes cron jobs).
 - **Voice:** choose and connect a voice API (ElevenLabs / Twilio) for speaking and calls.
 - **Server care:** set `HandleLidSwitch=ignore` so closing the lid doesn't suspend the server; make the Terminus console font permanent; verify Battery Limit keeps the battery at ~50%; check periodically for battery swelling; back up `~/.agent` and `~/.hermes`.
