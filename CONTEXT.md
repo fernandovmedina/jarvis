@@ -36,13 +36,22 @@ Personal AI assistant ("Jarvis") running 24/7 on a home server, reachable throug
 
 Too weak to run useful local LLMs; inference is done through cloud APIs.
 
+## Audio
+
+- **Cards:** card 1 `PCH` (Realtek **ALC288**) — laptop speakers and headphone jack, playback `hw:1,0`; card 0 `HDMI` — only `pcmC0D3p/7p/8p`, usable only with a display attached.
+- **Stack:** `alsa-utils` 1.2.16 (`aplay`, `amixer`, `speaker-test`, `alsactl`). No PipeWire, no PulseAudio — no daemon, direct ALSA only. The Hermes-bundled `ffmpeg` has only the `pulse` output, so it cannot play to these speakers.
+- **Mixer:** `Master Playback Volume` sits after the per-output amps. On a fresh install it was at `0` with the switch off, which silences the speakers while `Speaker` still reads 127. Current state: Master 101 (80 %), Speaker 101, Headphone 101, switches on.
+- **Persisted:** `/var/lib/alsa/asound.state`, written by `sudo alsactl store`; `alsa-restore.service` is `WantedBy=sound.target` and restores it at boot, so the level survives reboots.
+- **Test:** `speaker-test -D hw:1,0 -c2 -t sine -f 440 -l1` plays 440 Hz on both channels. Confirm the hardware amp, not just the control: `/proc/asound/card1/codec#0` → `Amp-Out vals: [0x4b 0x4b]` (raised); `[0x00 0x00]` means inaudible even when the control reads 127.
+- **Write access:** `fernandovmedina` is not in the `audio` group but has an ACL on `/dev/snd/pcmC1D0p` and `/dev/snd/controlC1` — `test -w` is the authoritative check.
+
 ## Operating system
 
 - Fedora Server 44, kernel 7.3, headless (TTY only).
 - Hostname: `jarvis-agent`.
 - Console font: `eurlatgr` (`/etc/vconsole.conf`); a larger Terminus font is preferred.
 - Lid close: default behavior (not yet set to ignore).
-- Installed: docker 29.10, git, gh 2.97, sqlite3, python3, Node (bundled with Hermes).
+- Installed: docker 29.10, git, gh 2.97, sqlite3, python3, Node (bundled with Hermes), alsa-utils 1.2.16.
 
 ## Network
 
