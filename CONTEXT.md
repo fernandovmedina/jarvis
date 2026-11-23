@@ -151,6 +151,13 @@ Not part of this list:
 - **Verified working:** Gmail search and read, Calendar list, Drive search/upload/export, Sheets create and update, Docs create and edit (used to build the Minuteko client quotes).
 - **Not granted:** Maps, Cloud Storage, YouTube, Tasks — no scopes for them, so those calls cannot work until the OAuth flow is re-run with the extra scopes.
 
+## Console dashboard
+
+- **Binary:** `jarvis-term` (`/usr/bin/jarvis-term`), source in `terminal/` (Rust + ratatui, bundled SQLite). Run it manually on tty1 or over SSH as `fernandovmedina`. It does not autostart.
+- **Shows:** Telegram messages (`~/.hermes/state.db`, read-only), model and tool calls (`~/.hermes/logs/agent.log`), CPU/RAM/swap/temperature (hwmon `coretemp`; `acpitz` reads −269 °C and is ignored), disk, network, battery, IPs, the gateway/tunnel/sshd state, and `gateway.log` + `errors.log`.
+- **Look and cost:** green and white only, ASCII borders, about 9 MB RSS and roughly 1 % CPU. Details are in `terminal/README.md`.
+- **Build copy on the server:** `~/.cache/jarvis-term` (built with `cargo build --release`).
+
 ## Tech stack
 
 | Area | Tools |
