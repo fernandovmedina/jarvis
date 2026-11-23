@@ -55,7 +55,7 @@ It runs as the user that owns `~/.hermes` (`~/.hermes/logs` is mode 700), and ne
 cd terminal
 cargo test --release        # log parser tests
 cargo build --release       # ~2 min first time on the i5 (bundled SQLite + LTO)
-sudo install -m 0755 target/release/jarvis-term /usr/bin/jarvis-term
+sudo install -m 0755 target/release/jarvis-term /usr/sbin/jarvis-term
 ```
 
 Run it from the console (log in on tty1) or over SSH:

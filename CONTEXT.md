@@ -153,10 +153,46 @@ Not part of this list:
 
 ## Console dashboard
 
-- **Binary:** `jarvis-term` (`/usr/bin/jarvis-term`), source in `terminal/` (Rust + ratatui, bundled SQLite). Run it manually on tty1 or over SSH as `fernandovmedina`. It does not autostart.
-- **Shows:** Telegram messages (`~/.hermes/state.db`, read-only), model and tool calls (`~/.hermes/logs/agent.log`), CPU/RAM/swap/temperature (hwmon `coretemp`; `acpitz` reads −269 °C and is ignored), disk, network, battery, IPs, the gateway/tunnel/sshd state, and `gateway.log` + `errors.log`.
-- **Look and cost:** green and white only, ASCII borders, about 9 MB RSS and roughly 1 % CPU. Details are in `terminal/README.md`.
-- **Build copy on the server:** `~/.cache/jarvis-term` (built with `cargo build --release`).
+`jarvis-term` is a full-screen TUI that shows what the agent is doing without opening the agent's own TUI: Telegram traffic, model and tool calls, hardware, addresses and logs. Green and white only, ASCII borders, no icons.
+
+| | |
+|---|---|
+| Binary | `/usr/sbin/jarvis-term` (`root:root` 0755, 2.7 MB stripped), on `PATH` as `jarvis-term` |
+| Source | `terminal/` in this repo — Rust 2021, `ratatui` 0.29, `rusqlite` (bundled), `libc`; single thread, no async runtime |
+| Build cache | `~/.cache/jarvis-term` (`cargo build --release`, Rust 1.100) |
+| Version check | `jarvis-term --version` → `jarvis-term 0.1.0` |
+| Start | manual only: `jarvis-term` on tty1 or over SSH as `fernandovmedina`. No unit, no autostart |
+| Env | `HERMES_HOME` overrides `~/.hermes` |
+
+Panels, sources and refresh (each panel keeps at most 500 entries):
+
+| Panel | Shows | Source | Refresh |
+|---|---|---|---|
+| Header | hostname, IPv4 per interface, uptime, load, clock | `/proc/sys/kernel/hostname`, `getifaddrs`, `/proc/uptime`, `/proc/loadavg` | 1 s / 10 s |
+| SYSTEM | CPU total and per core, RAM, swap, temperatures, disk `/`, network rate, battery, services | `/proc/stat`, `/proc/meminfo`, hwmon `coretemp`, `statvfs`, `/proc/net/dev`, `/sys/class/power_supply`, `systemctl is-active` | 1 s (disk, battery and services 10 s) |
+| API CALLS | every model call (model, provider, tokens in/out, latency) and every tool call (ok / ERROR) plus today's totals | `~/.hermes/logs/agent.log` | 0.5 s |
+| TELEGRAM | owner and Jarvis messages, wrapped | `~/.hermes/state.db`, opened read-only, `source = 'telegram'` | 2 s |
+| LOGS | gateway activity and every warning/error | `~/.hermes/logs/gateway.log`, `~/.hermes/logs/errors.log` | 0.5 s |
+
+Services map to units: `gateway` → `hermes-gateway.service` (user unit), `tunnel` → `cloudflared.service`, `sshd` → `sshd.service`. Anything other than `active` renders in bold.
+
+Keys: `q` / `Esc` / `Ctrl+C` quit; `Tab`, `Shift+Tab`, `1 2 3` focus API CALLS / TELEGRAM / LOGS; `Up`/`Down` (`k`/`j`) and `PgUp`/`PgDn` scroll; `Home` (`g`) and `End` (`G`) jump to the oldest line or follow the newest. A scrolled panel stops following and says so in its title.
+
+Cost: about 9 MB RSS and roughly 1 % of one core; a 2.7 MB binary with SQLite compiled in, so no `sqlite-devel` needed at runtime.
+
+```bash
+cd terminal
+cargo test --release
+cargo build --release
+sudo install -m 0755 target/release/jarvis-term /usr/sbin/jarvis-term
+```
+
+Traps:
+
+- `~/.hermes/logs` is mode 700, so it must run as the user that owns `~/.hermes`; under any other account the API and LOGS panels stay empty.
+- `acpitz` reports -269 °C on this hardware and is ignored; only hwmon `coretemp` is shown.
+- The 1366×768 console font is tiny: `sudo setfont ter-v22n` for the session (not permanent yet).
+- Rendering verified 2026-11-23 by capturing a frame from a pty: header, SYSTEM, API CALLS, TELEGRAM and LOGS all painted with live data.
 
 ## Tech stack
 

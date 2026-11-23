@@ -14,6 +14,7 @@ The design goal is not "a chatbot". It is an assistant with **durable memory, ex
 | **Email** | Reads, deletes spam and drafts replies. Sending always requires approval. |
 | **Finances** | Tracks expenses, income and subscriptions in MXN, mirrored between Google Sheets and a local SQLite database. |
 | **Reminders** | Telegram text or a voice call, chosen by importance. |
+| **Visibility** | A full-screen dashboard on the server console shows Telegram traffic, every model and tool call, hardware state and the logs. |
 
 ## How it is put together
 
@@ -48,9 +49,31 @@ Two ideas carry most of the design:
 | Integrations | DeepSeek API, Telegram gateway, GitHub MCP (read-only), context7 MCP, Google Workspace over OAuth (Gmail, Calendar, Drive, Sheets, Docs, Contacts) |
 | History | `~/.hermes/state.db` by Hermes, mirrored into `chat.db` |
 | Portfolio | Next.js + Tailwind CSS on Vercel |
+| Console | `jarvis-term`, a Rust TUI dashboard (source in `terminal/`) |
 | Hardware | Surface Pro 3, Fedora Server 44, headless |
 
 Inference runs on cloud APIs — the machine has no GPU and too little RAM for a useful local model.
+
+## Console dashboard
+
+The machine is headless, so watching what the assistant is doing used to mean tailing log files. `terminal/` is a small Rust program (`jarvis-term`, ratatui, no async runtime) that runs on the console or over SSH and paints the whole picture in two colours:
+
+- **Header** — hostname, addresses, uptime, load, clock.
+- **SYSTEM** — CPU per core, RAM, swap, package and core temperatures, disk, network rate, battery, and whether the gateway, tunnel and `sshd` are up.
+- **API CALLS** — every model call (model, provider, tokens in and out, latency) and every tool call with its status, plus the day's totals.
+- **TELEGRAM** — the conversation as it happens, read straight from the Hermes database in read-only mode.
+- **LOGS** — gateway activity and every warning or error.
+
+Keys: `q` quits, `Tab` / `1 2 3` focus a panel, arrows and `PgUp`/`PgDn` scroll, `End` follows the newest line. About 9 MB of RSS and 1 % of one core.
+
+```bash
+cd terminal
+cargo build --release
+sudo install -m 0755 target/release/jarvis-term /usr/sbin/jarvis-term
+jarvis-term          # on tty1, or over SSH as the user that owns ~/.hermes
+```
+
+It reads `~/.hermes/logs` (mode 700) and `~/.hermes/state.db`, so it must run as the owner of `~/.hermes`; `HERMES_HOME` points it at another Hermes directory. Details in [`terminal/README.md`](terminal/README.md).
 
 ## Chat history
 
