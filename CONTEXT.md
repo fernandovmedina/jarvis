@@ -54,11 +54,22 @@ Too weak to run useful local LLMs; inference is done through cloud APIs.
 | IPv6 | Yes (ISP-assigned, SLAAC) |
 | Firewall | firewalld active |
 | SSH | sshd active, key-based login |
-| Remote access | Cloudflare Tunnel (planned; `cloudflared` not installed yet) |
+| Remote access | Cloudflare Tunnel (`cloudflared` 2026.11.1): `jarvis.fervazquezdev.com` → SSH, behind Cloudflare Access |
 
 From the Mac, `ssh jarvis` connects without a password (`~/.ssh/config`: `Host jarvis` → `192.168.0.84`, user `fernandovmedina`).
 
 The server has a DHCP address on Wi-Fi; it needs a fixed address (router DHCP reservation or static IP) so `ssh jarvis` keeps working. Remote access from outside the home goes through a Cloudflare Tunnel, which also lets GitHub webhooks reach the server for the portfolio workflow without opening router ports.
+
+### Cloudflare Tunnel
+
+- **Client:** `cloudflared` 2026.11.1 (RPM `cloudflared-2026.11.1-1.x86_64`), binary `/usr/bin/cloudflared`; `/usr/local/sbin/cloudflared` is a symlink to it.
+- **Mode:** remotely managed and token-based — there is no `config.yml`. The tunnel token lives in `/etc/cloudflared/token` (`root:root`, mode `0600`).
+- **Service:** system unit `cloudflared.service` (`/etc/systemd/system/cloudflared.service`), `ExecStart=/usr/bin/cloudflared --no-autoupdate tunnel run --token-file /etc/cloudflared/token`, `Restart=on-failure`, enabled at boot. Logs: `journalctl -u cloudflared -f`.
+- **Tunnel ID:** `8d7463f5-dbcc-4874-b1a5-e95c563c6934`.
+- **Ingress:** `jarvis.fervazquezdev.com` → `ssh://localhost:22`, catch-all `http_status:404`. Routes are managed in the Cloudflare dashboard (Zero Trust → Networks → Tunnels); the server only holds the token.
+- **Protection:** the hostname is behind Cloudflare Access (team domain `delicate-glitter-2023.cloudflareaccess.com`). A plain browser request returns `302` to the Access login, so nothing reaches SSH without an Access session or service token.
+- **Connecting from outside:** `ssh -o ProxyCommand="cloudflared access ssh --hostname %h" fernandovmedina@jarvis.fervazquezdev.com` — needs `cloudflared` on the client and a valid Access session/token.
+- **Known quirk:** on start-up the journal shows `timeout: no recent network activity` against the IPv6 edge for a couple of connections; cloudflared retries and re-registers over IPv4 (dfw/iah/atl) until all four connections are up. Harmless but noisy.
 
 ## AI agent
 
@@ -97,12 +108,12 @@ The server has a DHCP address on Wi-Fi; it needs a fixed address (router DHCP re
 | Google | Gmail, Calendar, Drive, Sheets; personal and business accounts |
 | Data | SQLite (finances, local data) |
 | Containers | Docker |
-| Remote access | Cloudflare Tunnel |
+| Remote access | Cloudflare Tunnel (`cloudflared` 2026.11.1) → `jarvis.fervazquezdev.com`, gated by Cloudflare Access |
 | Portfolio | Next.js + Tailwind CSS, hosted on Vercel, domain `fervazquezdev.com` (bought at Hostinger, DNS on Cloudflare) |
 
 ## Work remaining
 
-- **Network:** fixed IP for the server; install and configure `cloudflared` and a Cloudflare Tunnel; review firewalld rules; confirm SSH allows keys only (no password login, no root login).
+- **Network:** fixed IP for the server; review firewalld rules; confirm SSH allows keys only (no password login, no root login); decide whether the tunnel should expose anything besides SSH (e.g. a webhook endpoint for GitHub pushes).
 - **Models:** set `deepseek-v4-pro` as the fallback instead of a second `deepseek-v4-flash`; remove unused OpenAI/OpenRouter keys from `~/.hermes/.env`; delete the old `~/secrets` folder.
 - **Context files:** update `TOOLS.md` (still lists the old OpenAI model); remove `chat.db` and its mention in `AGENT.md`; restart the gateway and confirm it answers as Jarvis.
 - **GitHub:** log in both accounts in `gh`; set up GitHub webhooks (through the tunnel) or a scheduled check so Jarvis sees new pushes; give the portfolio-sync skill the portfolio repo name.

@@ -42,6 +42,7 @@ Two ideas carry most of the design:
 |---|---|
 | Agent runtime | Hermes Agent, DeepSeek API |
 | Messaging | Telegram gateway (systemd user unit, restarts on failure) |
+| Remote access | Cloudflare Tunnel + Cloudflare Access: SSH at `jarvis.fervazquezdev.com` |
 | Tooling | Docker, Git, GitHub CLI with two identities, SQLite, Python, Node |
 | GitHub access | Read-only MCP server (`mcp_github_*`) plus the `gh` CLI for writes |
 | History | `~/.hermes/state.db` by Hermes, mirrored into `chat.db` |
