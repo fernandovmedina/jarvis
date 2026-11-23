@@ -52,8 +52,8 @@ Too weak to run useful local LLMs; inference is done through cloud APIs.
 | IPv4 | `192.168.0.84/24` via DHCP |
 | Gateway | `192.168.0.1` |
 | IPv6 | Yes (ISP-assigned, SLAAC) |
-| Firewall | firewalld active |
-| SSH | sshd active, publickey only (password and keyboard-interactive refused), root login disabled |
+| Firewall | firewalld active, zone `FedoraServer`: only `ssh` + `dhcpv6-client`, no extra ports or rich rules |
+| SSH | sshd active, publickey only (password and keyboard-interactive refused); root login enabled on purpose, key-only |
 | Remote access | Cloudflare Tunnel (`cloudflared` 2026.11.1): `jarvis.fervazquezdev.com` → SSH, behind Cloudflare Access |
 
 From the Mac, `ssh jarvis` connects without a password (`~/.ssh/config`: `Host jarvis` → `192.168.0.84`, user `fernandovmedina`).
@@ -71,9 +71,19 @@ The server has a DHCP address on Wi-Fi; it needs a fixed address (router DHCP re
 - **Connecting from outside:** `ssh -o ProxyCommand="cloudflared access ssh --hostname %h" fernandovmedina@jarvis.fervazquezdev.com` — needs `cloudflared` on the client and a valid Access session/token.
 - **Known quirk:** on start-up the journal shows `timeout: no recent network activity` against the IPv6 edge for a couple of connections; cloudflared retries and re-registers over IPv4 (dfw/iah/atl) until all four connections are up. Harmless but noisy.
 
+### Firewall
+
+- **Zone:** `FedoraServer` (default, active) on `wlp1s0` — services `ssh` and `dhcpv6-client` only; no opened ports, no source ports, no rich rules, `masquerade: no`.
+- **Forwarding:** the zone says `forward: yes`, but `net.ipv4.ip_forward = 0` and `net.ipv6.conf.all.forwarding = 0`, so it forwards nothing.
+- **Exposure:** a single inbound TCP listener on all interfaces, `22` (sshd). Everything else binds loopback: cloudflared metrics `127.0.0.1:20241`, Hermes `127.0.0.1:34701`, systemd-resolved `:53`, chronyd `:323`. The four wildcard UDP sockets are cloudflared's QUIC connections, not services.
+- **No WAN path:** traceroute lands on carrier NAT (`187.161.179.5` → `10.254.1.61`), so nothing is reachable from the internet except through the tunnel.
+- **Containers:** docker daemon not running, no podman containers — no hidden published ports.
+- **Check:** `sudo firewall-cmd --list-all` (as a normal user every rule-reading call fails with `Authorization failed.` — that is polkit, not a broken firewall).
+
 ### SSH hardening
 
-- **Where:** drop-in inside `/etc/ssh/sshd_config.d/` (root-only directory) with `PasswordAuthentication no`, `KbdInteractiveAuthentication no`, `PermitRootLogin no`. Confirm with `sudo sshd -T | grep -iE 'permitrootlogin|passwordauthentication|kbdinteractive'`.
+- **Where:** drop-in inside `/etc/ssh/sshd_config.d/` (root-only directory) carrying `PasswordAuthentication no` and `KbdInteractiveAuthentication no`; both are in effect. Confirm with `sudo sshd -T | grep -iE 'permitrootlogin|passwordauthentication|kbdinteractive'`.
+- **Root login: `PermitRootLogin yes`, by the owner's decision.** `sshd -T` reports `permitrootlogin yes` and the drop-in does not override it. Accepted because root can only present a key (`passwordauthentication no` is global) and the server has no WAN path — the only outside door is the tunnel hostname behind Cloudflare Access, which admits the owner's email. It stops being safe if password or keyboard-interactive auth is re-enabled, a key is added to `/root/.ssh/authorized_keys`, the Access policy is widened, the route loses Access, or the tunnel gains another ingress. Whether `/root/.ssh/authorized_keys` exists is root-only and unchecked. Revert with `echo 'PermitRootLogin no' | sudo tee -a /etc/ssh/sshd_config.d/10-hardening.conf && sudo sshd -t && sudo systemctl reload sshd`.
 - **Verified without root:** `ssh -o PreferredAuthentications=password -o PubkeyAuthentication=no fernandovmedina@localhost true` answers `Permission denied (publickey,gssapi-keyex,gssapi-with-mic)` — the daemon offers publickey only.
 - **Keys:** `~/.ssh/id_ed25519_jarvis_agent_personal` and `~/.ssh/id_ed25519_jarvis_agent_neurovix`, mapped to the `github_jarvis_agent_personal` / `github_jarvis_agent_neurovix` host aliases in `~/.ssh/config`.
 - **Trap:** sshd directives must never live in `/etc/ssh/ssh_config.d/`. The ssh *client* parses that entire directory, aborts on `Bad configuration option: permitrootlogin`, and every outgoing ssh on the machine dies — git over ssh, `gh`, `scp` — while `git push` reports it as an auth/repository error instead of a config error.
