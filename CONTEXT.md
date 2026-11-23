@@ -125,7 +125,7 @@ The server has a DHCP address on Wi-Fi; it needs a fixed address (router DHCP re
 
 ## Integrations
 
-Everything Jarvis can reach outside the server, and where each credential lives. Nothing else is connected: there is no Cloudflare API token, no Supabase token and no voice provider on this machine.
+Everything Jarvis can reach outside the server, and where each credential lives. Google is the only third-party account it holds credentials for; no voice provider is connected yet.
 
 | Integration | What it does | Credential / config | Status |
 |---|---|---|---|
@@ -136,6 +136,12 @@ Everything Jarvis can reach outside the server, and where each credential lives.
 | GitHub CLI | Writes: branches, commits, pushes, PRs, issues | `gh` with both accounts (`fernandovmedina`, `neurovix`) plus the SSH host aliases | Active |
 | context7 MCP | Up-to-date library documentation | `https://mcp.context7.com/mcp` | Active |
 | Google Workspace | Gmail, Calendar, Drive, Sheets, Docs, Contacts | OAuth: `~/.hermes/google_token.json` + `~/.hermes/google_client_secret.json` | Active, one account |
+
+
+Not part of this list:
+
+- **Cloudflare.** Only the outbound tunnel, configured under `Network → Cloudflare Tunnel`. It authenticates with its tunnel token (`/etc/cloudflared/token`), not with a Cloudflare API token, and it is what makes `jarvis.fervazquezdev.com` reach SSH from outside the home network.
+- **Supabase.** The Minuteko projects carry their own MCP config in their repos (`minuteko-backend/.mcp.json`). That belongs to those projects, not to Jarvis, and nothing of it is loaded into Hermes here.
 
 ### Google Workspace
 
