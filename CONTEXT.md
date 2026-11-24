@@ -67,7 +67,7 @@ Too weak to run useful local LLMs; inference is done through cloud APIs.
 
 From the Mac, `ssh jarvis` connects without a password (`~/.ssh/config`: `Host jarvis` → `192.168.0.84`, user `fernandovmedina`).
 
-The server keeps `192.168.0.84` on Wi-Fi: in the router's Private Network table the `jarvis-agent` entry was switched from DHCP to **Static**, reserving that address for its MAC (screenshot: `public/network.png`). The server itself still asks for its address over DHCP; the router always hands back the same one, so `ssh jarvis` keeps working. The MAC is locally administered (NetworkManager's per-network address), so if it ever changes the reservation must be updated. Remote access from outside the home goes through a Cloudflare Tunnel, which also lets GitHub webhooks reach the server for the portfolio workflow without opening router ports.
+The server keeps `192.168.0.84` on Wi-Fi: in the router's Private Network table the `jarvis-agent` entry was switched from DHCP to **Static**, reserving that address for its MAC. The server itself still asks for its address over DHCP; the router always hands back the same one, so `ssh jarvis` keeps working. The MAC is locally administered (NetworkManager's per-network address), so if it ever changes the reservation must be updated. Remote access from outside the home goes through a Cloudflare Tunnel, which also lets GitHub webhooks reach the server for the portfolio workflow without opening router ports.
 
 ### Cloudflare Tunnel
 
