@@ -58,6 +58,7 @@ Inference runs on cloud APIs — the machine has no GPU and too little RAM for a
 
 The server lives on the home LAN at a fixed address, `192.168.0.84`. Rather than configuring a static IP on the machine, the router's DHCP lease for `jarvis-agent` was switched to **Static**, so the router always hands it the same address and `ssh jarvis` from the Mac never breaks. Nothing is exposed to the internet: remote access goes out through the Cloudflare Tunnel.
 
+![Router's Private Network table: only the jarvis-agent row, Static at 192.168.0.84, MAC 8e:2b:14:19:07:1c](public/network.png)
 
 ## Console dashboard
 
