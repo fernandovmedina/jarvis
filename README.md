@@ -54,6 +54,12 @@ Two ideas carry most of the design:
 
 Inference runs on cloud APIs — the machine has no GPU and too little RAM for a useful local model.
 
+## Network
+
+The server lives on the home LAN at a fixed address, `192.168.0.84`. Rather than configuring a static IP on the machine, the router's DHCP lease for `jarvis-agent` was switched to **Static**, so the router always hands it the same address and `ssh jarvis` from the Mac never breaks. Nothing is exposed to the internet: remote access goes out through the Cloudflare Tunnel.
+
+![Router's Private Network table with jarvis-agent reserved as Static at 192.168.0.84](public/network.png)
+
 ## Console dashboard
 
 The machine is headless, so watching what the assistant is doing used to mean tailing log files. `terminal/` is a small Rust program (`jarvis-term`, ratatui, no async runtime) that runs on the console or over SSH and paints the whole picture in two colours:

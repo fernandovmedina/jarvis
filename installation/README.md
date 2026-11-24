@@ -20,7 +20,7 @@ reference: what each step does, why, and how to verify it.
 | Disk | 117 GB LVM, single `/` (13 GB used on a working install) |
 | RAM / swap | 3.7 GB / 3.7 GB — no local inference possible |
 | Console | TTY only, no desktop session |
-| Network | DHCP on Wi-Fi, carrier NAT upstream, no inbound ports |
+| Network | Wi-Fi, `192.168.0.84` reserved on the router for the server's MAC, carrier NAT upstream, no inbound ports |
 | Timezone | `America/Monterrey` (UTC-6) |
 
 Prerequisites that cannot be installed: a Cloudflare zone with a named tunnel, one or more GitHub

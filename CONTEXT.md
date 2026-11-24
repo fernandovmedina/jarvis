@@ -58,7 +58,7 @@ Too weak to run useful local LLMs; inference is done through cloud APIs.
 | | |
 |---|---|
 | Interface | `wlp1s0` (Wi-Fi) |
-| IPv4 | `192.168.0.84/24` via DHCP |
+| IPv4 | `192.168.0.84/24`, reserved on the router (static lease bound to MAC `8e:2b:14:19:07:1c`) |
 | Gateway | `192.168.0.1` |
 | IPv6 | Yes (ISP-assigned, SLAAC) |
 | Firewall | firewalld active, zone `FedoraServer`: only `ssh` + `dhcpv6-client`, no extra ports or rich rules |
@@ -67,7 +67,7 @@ Too weak to run useful local LLMs; inference is done through cloud APIs.
 
 From the Mac, `ssh jarvis` connects without a password (`~/.ssh/config`: `Host jarvis` → `192.168.0.84`, user `fernandovmedina`).
 
-The server has a DHCP address on Wi-Fi; it needs a fixed address (router DHCP reservation or static IP) so `ssh jarvis` keeps working. Remote access from outside the home goes through a Cloudflare Tunnel, which also lets GitHub webhooks reach the server for the portfolio workflow without opening router ports.
+The server keeps `192.168.0.84` on Wi-Fi: in the router's Private Network table the `jarvis-agent` entry was switched from DHCP to **Static**, reserving that address for its MAC (screenshot: `public/network.png`). The server itself still asks for its address over DHCP; the router always hands back the same one, so `ssh jarvis` keeps working. The MAC is locally administered (NetworkManager's per-network address), so if it ever changes the reservation must be updated. Remote access from outside the home goes through a Cloudflare Tunnel, which also lets GitHub webhooks reach the server for the portfolio workflow without opening router ports.
 
 ### Cloudflare Tunnel
 
@@ -211,7 +211,7 @@ Traps:
 
 ## Work remaining
 
-- **Network:** fixed IP for the server; review firewalld rules; decide whether the tunnel should expose anything besides SSH (e.g. a webhook endpoint for GitHub pushes).
+- **Network:** review firewalld rules; decide whether the tunnel should expose anything besides SSH (e.g. a webhook endpoint for GitHub pushes).
 - **Models:** set `deepseek-v4-pro` as the fallback instead of a second `deepseek-v4-flash`; remove unused OpenAI/OpenRouter keys from `~/.hermes/.env`; delete the old `~/secrets` folder.
 - **Context files:** update `TOOLS.md` (still lists the old OpenAI model); remove `chat.db` and its mention in `AGENT.md`; restart the gateway and confirm it answers as Jarvis.
 - **GitHub:** log in both accounts in `gh`; set up GitHub webhooks (through the tunnel) or a scheduled check so Jarvis sees new pushes; give the portfolio-sync skill the portfolio repo name.
