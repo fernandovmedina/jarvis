@@ -339,6 +339,10 @@ the cron session so the loop outlives it.
 hostnamectl --static; uname -r
 free -h; df -h /
 
+# LAN: the router must hand back the reserved address
+ip -4 addr show wlp1s0 | grep inet      # expect 192.168.0.84/24
+ip link show wlp1s0 | grep ether        # MAC the reservation is bound to
+
 # firewall: ssh only
 sudo firewall-cmd --list-all
 
