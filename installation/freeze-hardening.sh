@@ -63,10 +63,19 @@ fi
 
 # --------------------------------------------------- 3. Capture the crash ---
 say "Crash capture"
-if ! rpm -q kexec-tools >/dev/null 2>&1; then
-    dnf install -y kexec-tools
-else
-    ok "kexec-tools already installed"
+# Fedora 44 split the kdump machinery out of kexec-tools: `kdump-utils` is the
+# package that ships kdumpctl and kdump.service. Installing only kexec-tools
+# leaves kexec on the disk and no service to load the crash kernel.
+for pkg in kexec-tools kdump-utils; do
+    if rpm -q "$pkg" >/dev/null 2>&1; then
+        ok "$pkg already installed"
+    else
+        dnf install -y "$pkg"
+        ok "$pkg installed"
+    fi
+done
+if ! systemctl list-unit-files kdump.service >/dev/null 2>&1; then
+    echo "    warning: kdump.service still missing after the install" >&2
 fi
 
 if grubby --info=ALL | grep -q 'crashkernel='; then
@@ -77,23 +86,40 @@ else
     ok "crashkernel=384M reserved"
 fi
 
-cat >/etc/sysctl.d/90-crash-capture.conf <<'EOF'
 # A hang must leave evidence instead of going silent, and a panic must recover
-# unattended. Written by installation/freeze-hardening.sh.
-kernel.hung_task_timeout_secs = 60
-kernel.hung_task_panic = 1
-kernel.softlockup_panic = 1
-kernel.panic = 10
-EOF
+# unattended. Only write keys this kernel actually exports: Fedora 44 does not
+# ship kernel.hung_task_*, and naming a missing key makes systemd-sysctl log an
+# error on every boot.
+SYSCTL_FILE=/etc/sysctl.d/90-crash-capture.conf
+{
+    echo "# A hang must leave evidence instead of going silent, and a panic must"
+    echo "# recover unattended. Written by installation/freeze-hardening.sh."
+    for entry in \
+        kernel.panic=10 \
+        kernel.softlockup_panic=1 \
+        kernel.hardlockup_panic=1 \
+        kernel.panic_on_rcu_stall=1
+    do
+        key="${entry%%=*}"
+        path="/proc/sys/${key//.//}"
+        if [[ -e $path ]]; then
+            printf '%s = %s\n' "$key" "${entry#*=}"
+        else
+            printf '    skip (not exported by this kernel): %s\n' "$key"
+        fi
+    done
+} >"$SYSCTL_FILE"
 sysctl --system >/dev/null 2>&1 || true
-ok "sysctl: hung_task 60s → panic, softlockup → panic, panic → reboot after 10s"
-ok "live: $(sysctl -n kernel.hung_task_panic kernel.softlockup_panic kernel.panic | tr '\n' ' ')"
+ok "sysctl file: $SYSCTL_FILE"
+ok "live: softlockup_panic=$(sysctl -n kernel.softlockup_panic 2>/dev/null) hardlockup_panic=$(sysctl -n kernel.hardlockup_panic 2>/dev/null) panic=$(sysctl -n kernel.panic 2>/dev/null)"
 
 systemctl enable kdump.service >/dev/null 2>&1 || true
 if systemctl start kdump.service 2>/dev/null; then
-    ok "kdump active"
+    ok "kdump active: $(systemctl is-active kdump.service)"
 else
-    echo "    note: kdump needs the reboot to find its crashkernel reservation"
+    echo "    note: kdump could not start yet; with crashkernel already on the"
+    echo "          kernel command line it starts without a reboot once"
+    echo "          kdump-utils is installed: sudo systemctl enable --now kdump"
 fi
 
 # ------------------------------------------------------------------ audit ---
