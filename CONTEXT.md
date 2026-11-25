@@ -97,6 +97,15 @@ The server keeps `192.168.0.84` on Wi-Fi: in the router's Private Network table 
 - **Keys:** `~/.ssh/id_ed25519_jarvis_agent_personal` and `~/.ssh/id_ed25519_jarvis_agent_neurovix`, mapped to the `github_jarvis_agent_personal` / `github_jarvis_agent_neurovix` host aliases in `~/.ssh/config`.
 - **Trap:** sshd directives must never live in `/etc/ssh/ssh_config.d/`. The ssh *client* parses that entire directory, aborts on `Bad configuration option: permitrootlogin`, and every outgoing ssh on the machine dies — git over ssh, `gh`, `scp` — while `git push` reports it as an auth/repository error instead of a config error.
 
+## Stability
+
+- **The 2026-11-24 freeze.** The system booted on 22 November at 16:09 and its journal stops dead at **08:23:28 on the 24th**, with no shutdown sequence, no OOM, no panic and nothing in `pstore`; the next entry is the manual reboot at 18:39, and `last` has no `shutdown` record for that boot. `sshd` logged **zero connection attempts** in the whole window, so the machine was not refusing the owner — it was gone.
+- **What preceded it:** a `/24` ping sweep from this host (254 parallel `ping -c1` plus ARP resolution) at 08:22–08:23. The Wi-Fi card is a Marvell 88W8897 (`mwifiex_pcie`) running with `power_save: on`, a combination known to wedge under a broadcast burst. When it wedges it takes the PCIe path with it: journald stops writing, ssh stops answering, and a live console cannot read binaries — which is why ordinary commands read as "not found". PCIe ASPM is the second suspect on Surface hardware.
+- **Mitigations, in `installation/freeze-hardening.sh`:** NetworkManager `802-11-wireless.powersave=2` plus a runtime `iw dev wlp1s0 set power_save off`; `pcie_aspm=off` on every kernel entry; `kexec-tools` with `crashkernel=384M` and `kdump` enabled so the next hang leaves a vmcore; `kernel.hung_task_timeout_secs=60`, `hung_task_panic=1`, `softlockup_panic=1` and `kernel.panic=10` so a hang turns into evidence and the box reboots itself instead of waiting for a human.
+- **Rule: never sweep the LAN from this server.** The ARP table can be populated by probing a handful of addresses; the device list belongs to the router's DHCP table (`192.168.0.1` → Private Network) or to a scan run from another machine.
+- **How to confirm the fix survived a reboot:** `cat /proc/cmdline | tr ' ' '\n' | grep -E 'pcie_aspm|crashkernel'` and `systemctl is-active kdump`; `iw dev wlp1s0 get power_save` must answer `off`.
+- **Not fixed by this:** the battery reports `49%`, `Not charging`, with empty `energy_full*` fields. If the pack or its gauge misbehaves, an instant power-off would look similar; keep an eye on `upower -d` and the charger.
+
 ## AI agent
 
 - **Framework:** Hermes Agent (Nous Research), installed in `~/.hermes`, CLI at `~/.local/bin/hermes`.
